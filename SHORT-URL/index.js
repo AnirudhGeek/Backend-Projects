@@ -1,11 +1,16 @@
 const express = require("express");
-const app = express();
-const urlRoute = require("./routes/url");
-const { connectToMongoDB } = require("./connect");
-const URL = require("./models/url");
 const path = require("path");
-const staticRoute = require('./routes/staticRouter')
+const cookieParser  = require("cookie-parser")
+const { connectToMongoDB } = require("./connect");
+const { restrictToLoggedInUserOnly } = require('./middlewares/auth')
 
+const URL = require("./models/url");
+
+const urlRoute = require("./routes/url");
+const staticRoute = require("./routes/staticRouter");
+const userRoute = require("./routes/user");
+
+const app = express();
 const PORT = 8001;
 
 connectToMongoDB("mongodb://localhost:27017/short-url").then(() =>
@@ -13,14 +18,13 @@ connectToMongoDB("mongodb://localhost:27017/short-url").then(() =>
 );
 
 app.use(express.json());
-app.use(express.urlencoded({extended:false})) //this middleware is use to support form data 
-
-
+app.use(express.urlencoded({ extended: false })); //this middleware is use to support form data
+app.use(cookieParser())
 // //server side rendering => when the HTML/webpage is rendered by the server
 // //to solve server side rendering we use some templating engines like ejs, pug and handlebars
 
- app.set("view engine", "ejs"); //we are telling express that our view engine is express
- app.set("views", path.resolve("./views")); //and all my files and files are made particularly in this folder
+app.set("view engine", "ejs"); //we are telling express that our view engine is express
+app.set("views", path.resolve("./views")); //and all my files and files are made particularly in this folder
 
 // app.get("/test", async (req, res) => {
 //   const allUrls = await URL.find({});
@@ -31,10 +35,9 @@ app.use(express.urlencoded({extended:false})) //this middleware is use to suppor
 //   });
 // });
 
-
-app.use('/url',urlRoute)
-
-app.use('/',staticRoute)
+app.use("/url", restrictToLoggedInUserOnly, urlRoute);
+app.use("/user", userRoute);
+app.use("/", staticRoute);
 app.get("/:shortId", async (req, res) => {
   const shortId = req.params.shortId;
 
